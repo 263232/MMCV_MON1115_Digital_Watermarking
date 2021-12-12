@@ -26,18 +26,35 @@ def scale(image, scale_width):
 
 watermark = scale(cv.imread('images/logo.png', cv.IMREAD_UNCHANGED), 150)
 (watermark_height, watermark_width) = watermark.shape[:2]
-image = scale(cv.imread('images/road.jpg'), 1000)
+image = scale(cv.imread('images/road.jpg'), 900)
 (image_height, image_width) = image.shape[:2]
 image = cv.cvtColor(image, cv.COLOR_BGR2BGRA)
 
 overlay = np.zeros((image_height, image_width, 4), dtype='uint8')
-overlay[0:watermark_height, 0:watermark_width] = watermark
+#overlay[0:watermark_height, 0:watermark_width] = watermark
+#overlay[0:watermark_height, image_width-watermark_width:image_width] = watermark
+overlay[image_height-watermark_height:image_height, image_width-watermark_width:image_width] = watermark
 
+
+output1 = image.copy()
+output2 = image.copy()
+output3 = image.copy()
 cv.addWeighted(overlay, 1.0, image, 1.0, 0, image)
+
+cv.addWeighted(overlay, 0.1, image, 1.0, 0, output1)
+cv.addWeighted(overlay, 0.5, image, 1.0, 0, output2)
+cv.addWeighted(overlay, 1.0, image, 1.0, 0, output3)
+
+cv.imwrite("WatermarkedImage.png", image)
 
 while True:
     cv.imshow("Overlay", overlay)
     cv.imshow("Image", image)
     cv.imshow("Watermark", watermark)
+
+    cv.imshow("Overlay1", output1)
+    cv.imshow("Image1", output2)
+    cv.imshow("Watermark1", output3)
+
     if cv.waitKey(1) == ord('q'):
         break
