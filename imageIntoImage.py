@@ -118,10 +118,7 @@ def encoding_option():
     encoded_image.save(encoded_image_filename)
 
 
-def decoding_option(img, output):
-    unmerged_image = Steganography.unmerge(Image.open(img))
-    unmerged_image.save(output)
-
+def decoding_option():
     image_name = input("Enter the name of the steganographed image that you want to decode (with extension): ")
     image_name = image_name.strip()
     image = cv2.imread(image_name)
