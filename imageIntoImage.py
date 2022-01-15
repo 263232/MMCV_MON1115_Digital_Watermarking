@@ -1,7 +1,8 @@
 from PIL import Image
 import cv2
 
-class Steganography:
+
+class SteganographyImgToImg:
 
     @staticmethod
     def convert_int_to_binary(rgb):
@@ -46,19 +47,19 @@ class Steganography:
 
         for i in range(img1.size[0]):
             for j in range(img1.size[1]):
-                rgb1 = Steganography.convert_int_to_binary(pixel_map1[i, j])
+                rgb1 = SteganographyImgToImg.convert_int_to_binary(pixel_map1[i, j])
 
                 # Use a black pixel as default
-                rgb2 = Steganography.convert_int_to_binary((0, 0, 0))
+                rgb2 = SteganographyImgToImg.convert_int_to_binary((0, 0, 0))
 
                 # Check if the pixel map position is valid for the second image
                 if i < img2.size[0] and j < img2.size[1]:
-                    rgb2 = Steganography.convert_int_to_binary(pixel_map2[i, j])
+                    rgb2 = SteganographyImgToImg.convert_int_to_binary(pixel_map2[i, j])
 
                 # Merge the two pixels and convert it to a integer tuple
-                rgb = Steganography.merge_rgb(rgb1, rgb2)
+                rgb = SteganographyImgToImg.merge_rgb(rgb1, rgb2)
 
-                pixels_new[i, j] = Steganography.convert_binary_to_int(rgb)
+                pixels_new[i, j] = SteganographyImgToImg.convert_binary_to_int(rgb)
 
         return new_image
 
@@ -77,7 +78,7 @@ class Steganography:
         for i in range(img.size[0]):
             for j in range(img.size[1]):
                 # Get the RGB (as a string tuple) from the current pixel
-                r, g, b = Steganography.convert_int_to_binary(pixel_map[i, j])
+                r, g, b = SteganographyImgToImg.convert_int_to_binary(pixel_map[i, j])
 
                 # Extract the last 4 bits (corresponding to the hidden image)
                 # Concatenate 4 zero bits because we are working with 8 bit
@@ -86,7 +87,7 @@ class Steganography:
                        b[4:] + '0000')
 
                 # Convert it to an integer tuple
-                pixels_new[i, j] = Steganography.convert_binary_to_int(rgb)
+                pixels_new[i, j] = SteganographyImgToImg.convert_binary_to_int(rgb)
 
                 # If this is a 'valid' position, store it
                 # as the last valid position
@@ -105,7 +106,6 @@ def encoding_option():
     image = cv2.imread(image_name)
     print("The shape of the image is: ", image.shape)
 
-
     signature_name = input("Enter name of the image-signature (with extension): ")
     if len(signature_name) == 0:
         raise ValueError('Name not provided')
@@ -114,7 +114,7 @@ def encoding_option():
         print("The shape of the signature is: ", image_signature.shape)
 
     encoded_image_filename = input("Enter the name of new encoded image(with extension): ")
-    encoded_image = Steganography.merge(Image.open(image_name), Image.open(signature_name))
+    encoded_image = SteganographyImgToImg.merge(Image.open(image_name), Image.open(signature_name))
     encoded_image.save(encoded_image_filename)
 
 
@@ -128,7 +128,7 @@ def decoding_option():
     cv2.imshow("Steganograpghed image", resized_image)  # display the Steganographed image
 
     decoded_signature_filename = input("Enter the name of the decoded image - signature (with extension): ")
-    decoded_signature = Steganography.unmerge(Image.open(image_name))
+    decoded_signature = SteganographyImgToImg.unmerge(Image.open(image_name))
     decoded_signature.save(decoded_signature_filename)
 
 
