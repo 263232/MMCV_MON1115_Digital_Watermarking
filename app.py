@@ -1,191 +1,18 @@
-import tkinter as tk
-from tkinter import filedialog, Text, simpledialog, messagebox
 import os
-import numpy as np
+import tkinter as tk
+from tkinter import filedialog, simpledialog, messagebox
+
 import cv2
+import numpy as np
 from PIL import Image, ImageTk
+
+from steganographyImgToImg import SteganographyImgToImg
+from steganographyTxtToImg import SteganographyTxtToImg
+from imageTransformations import ImageTransformations
+from steganographyDWTDCT import SteganographyDwtDct
 
 root = tk.Tk()
 root.title('Digital Watermarking App')
-
-
-class SteganographyImgToImg:
-
-    @staticmethod
-    def convert_int_to_binary(rgb):
-        # Converting integer to a binary (string)
-        r, g, b = rgb
-        return (f'{r:08b}',
-                f'{g:08b}',
-                f'{b:08b}')
-
-    @staticmethod
-    def convert_binary_to_int(rgb):
-        # Converting a binary (string) tuple to an integer tuple.
-        r, g, b = rgb
-        return (int(r, 2),
-                int(g, 2),
-                int(b, 2))
-
-    @staticmethod
-    def merge_rgb(rgb1, rgb2):
-        # Merge two RGB tuples -> insert 4 most significant bits from signature
-        # in the place of 4 least significant bits of image to being signatured
-        r1, g1, b1 = rgb1
-        r2, g2, b2 = rgb2
-        rgb = (r1[:4] + r2[:4],
-               g1[:4] + g2[:4],
-               b1[:4] + b2[:4])
-        return rgb
-
-    @staticmethod
-    def merge(img1, img2):
-        # Check the images dimensions
-        if img2.size[0] > img1.size[0] or img2.size[1] > img1.size[1]:
-            raise ValueError('Image 2 should not be larger than Image 1!')
-
-        # Get the pixel map of the two images
-        pixel_map1 = img1.load()
-        pixel_map2 = img2.load()
-
-        # Create a new image that will be outputted
-        new_image = Image.new(img1.mode, img1.size)
-        pixels_new = new_image.load()
-
-        for i in range(img1.size[0]):
-            for j in range(img1.size[1]):
-                rgb1 = SteganographyImgToImg.convert_int_to_binary(pixel_map1[i, j])
-
-                # Use a black pixel as default
-                rgb2 = SteganographyImgToImg.convert_int_to_binary((0, 0, 0))
-
-                # Check if the pixel map position is valid for the second image
-                if i < img2.size[0] and j < img2.size[1]:
-                    rgb2 = SteganographyImgToImg.convert_int_to_binary(pixel_map2[i, j])
-
-                # Merge the two pixels and convert it to a integer tuple
-                rgb = SteganographyImgToImg.merge_rgb(rgb1, rgb2)
-
-                pixels_new[i, j] = SteganographyImgToImg.convert_binary_to_int(rgb)
-
-        return new_image
-
-    @staticmethod
-    def unmerge(img):
-        # Load the pixel map
-        pixel_map = img.load()
-
-        # Create the new image and load the pixel map
-        new_image = Image.new(img.mode, img.size)
-        pixels_new = new_image.load()
-
-        # Tuple used to store the image original size
-        original_size = img.size
-
-        for i in range(img.size[0]):
-            for j in range(img.size[1]):
-                # Get the RGB (as a string tuple) from the current pixel
-                r, g, b = SteganographyImgToImg.convert_int_to_binary(pixel_map[i, j])
-
-                # Extract the last 4 bits (corresponding to the hidden image)
-                # Concatenate 4 zero bits because we are working with 8 bit
-                rgb = (r[4:] + '0000',
-                       g[4:] + '0000',
-                       b[4:] + '0000')
-
-                # Convert it to an integer tuple
-                pixels_new[i, j] = SteganographyImgToImg.convert_binary_to_int(rgb)
-
-                # If this is a 'valid' position, store it
-                # as the last valid position
-                if pixels_new[i, j] != (0, 0, 0):
-                    original_size = (i + 1, j + 1)
-
-        # Crop the image based on the 'valid' pixels
-        new_image = new_image.crop((0, 0, original_size[0], original_size[1]))
-
-        return new_image
-
-
-class SteganographyTxtToImg:
-
-    @staticmethod
-    def convert_pixel_to_binary(pixel):
-        if type(pixel) == bytes or type(pixel) == np.ndarray:
-            return [format(i, "08b") for i in pixel]
-        elif type(pixel) == int or type(pixel) == np.uint8:
-            return format(pixel, "08b")
-        else:
-            raise TypeError("Input type of pixel not supported")
-
-    @staticmethod
-    def convert_message_to_binary(message):
-        if type(message) == str:
-            return ''.join([format(ord(i), "08b") for i in message])
-        elif type(message) == int or type(message) == np.uint8:
-            return format(message, "08b")
-        else:
-            raise TypeError("Input type of message not supported")
-
-    # Function to hide the secret message into the image
-    @staticmethod
-    def encode_message(image, secret_message):
-        delimiter = "#####"  # the delimiter of the secret message
-
-        n_bytes = image.shape[0] * image.shape[1] * 3 // 8  # maximum bytes to encode
-        print("Maximum bytes to encode:", n_bytes)
-
-        if len(secret_message) > n_bytes:
-            raise ValueError("Message is too large, for given image")
-
-        secret_message += delimiter  # adding delimiter to the end of the message to encode
-        binary_secret_msg = SteganographyTxtToImg.convert_message_to_binary(
-            secret_message)  # converting input data to binary format
-
-        data_index = 0
-        data_len = len(binary_secret_msg)  # length of data that needs to be hidden
-        for values in image:
-            for pixel in values:
-                r, g, b = SteganographyTxtToImg.convert_pixel_to_binary(pixel)  # convert RGB values to binary format
-                # modify the least significant bit only if there is still data to store
-                if data_index < data_len:
-                    # hide the data into least significant bit of red pixel
-                    pixel[0] = int(r[:-1] + binary_secret_msg[data_index], 2)
-                    data_index += 1
-                if data_index < data_len:
-                    # hide the data into least significant bit of green pixel
-                    pixel[1] = int(g[:-1] + binary_secret_msg[data_index], 2)
-                    data_index += 1
-                if data_index < data_len:
-                    # hide the data into least significant bit of  blue pixel
-                    pixel[2] = int(b[:-1] + binary_secret_msg[data_index], 2)
-                    data_index += 1
-                # if data is encoded, just break out of the loop
-                if data_index >= data_len:
-                    break
-
-        return image
-
-    @staticmethod
-    def decode_message(image):
-        delimiter = "#####"
-        binary_data = ""
-        for values in image:
-            for pixel in values:
-                r, g, b = SteganographyTxtToImg.convert_pixel_to_binary(
-                    pixel)  # converting the red,green and blue values into binary format
-                binary_data += r[-1]  # extracting data from the least significant bit of red pixel
-                binary_data += g[-1]  # extracting data from the least significant bit of green pixel
-                binary_data += b[-1]  # extracting data from the least significant bit of blue pixel
-
-        decoded_bytes = [binary_data[i: i + 8] for i in range(0, len(binary_data), 8)]  # splitting by 8-bits
-        decoded_data = ""
-        for byte in decoded_bytes:
-            decoded_data += chr(int(byte, 2))
-            if decoded_data[-5:] == delimiter:  # checking if reached the delimiter "#####"
-                break
-
-        return decoded_data[:-5]  # returning without the delimiter to show the original hidden message
 
 
 def resize():
@@ -200,13 +27,6 @@ def resize():
     filename2 = simpledialog.askstring("Enter a file name", "Include the extension (.jpg .png) in the file name")
     cv2.imwrite(filename2, img_half)
 
-
-def scale(image, scale_width):
-    (image_height, image_width) = image.shape[:2]
-    new_height = int(scale_width / image_width * image_height)
-    return cv2.resize(image, (scale_width, new_height))
-
-
 def compress():
     filename = filedialog.askopenfilename(initialdir="/", title="Select file to compress",
                                           filetypes=(("png", "*.png"), ("jpg", "*.jpg"), ("all files", "*.*")))
@@ -214,8 +34,7 @@ def compress():
     path2 = filedialog.askdirectory(title="Select directory to save a file")
     os.chdir(path2)
     filename2 = simpledialog.askstring("Enter a file name", "Include the extension (.jpg .png) in the file name")
-    picture.save(filename2, optimize=True, quality=80)
-
+    picture.save(filename2, optimize=True, quality=50)
 
 def distortion():
     filename = filedialog.askopenfilename(initialdir="/", title="Select file to make distortion",
@@ -228,22 +47,12 @@ def distortion():
     cv2.imwrite(distorted_image_path, distorted_image)
 
 
-class ImageTransformations:
 
-    @staticmethod
-    def distortion(image_path):
-        img = cv2.imread(image_path)
 
-        A = img.shape[0] / 3.0
-        w = 2.0 / img.shape[1]
-
-        shift = lambda x: A * np.sin(2.0 * np.pi * x * w)
-
-        for i in range(img.shape[1]):
-            img[:, i] = np.roll(img[:, i], int(shift(i)))
-
-        return img
-
+def scale(image, scale_width):
+    (image_height, image_width) = image.shape[:2]
+    new_height = int(scale_width / image_width * image_height)
+    return cv2.resize(image, (scale_width, new_height))
 
 def invisible_img_to_img_encode():
     image_name = filedialog.askopenfilename(initialdir="/",
@@ -415,12 +224,14 @@ invisibleVMTextDecode = tk.Button(root, text="Invisible WM (text as watermark) -
 invisibleVMTextDecode.grid(column=1, row=9)
 
 invisibleVMDWTDCTTextEncode = tk.Button(root, text="Invisible WM DWT_DCT(image as watermark) - encode", font="Raleway",
-                                        fg="white", bg="orange", height=2, width=weiderButtonWidthSize
+                                        fg="white", bg="orange", height=2, width=weiderButtonWidthSize,
+                                        command=SteganographyDwtDct.encode_watermark
                                         )
 invisibleVMDWTDCTTextEncode.grid(column=1, row=10)
 
 invisibleVMDWTDCTTextDecode = tk.Button(root, text="Invisible WM DWT_DCT (image as watermark) - decode", font="Raleway",
-                                        fg="white", bg="orange", height=2, width=weiderButtonWidthSize
+                                        fg="white", bg="orange", height=2, width=weiderButtonWidthSize,
+                                        command=SteganographyDwtDct.decode_watermark
                                         )
 invisibleVMDWTDCTTextDecode.grid(column=1, row=11)
 
