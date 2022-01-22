@@ -34,7 +34,7 @@ def compress():
     path2 = filedialog.askdirectory(title="Select directory to save a file")
     os.chdir(path2)
     filename2 = simpledialog.askstring("Enter a file name", "Include the extension (.jpg .png) in the file name")
-    picture.save(filename2, optimize=True, quality=50)
+    picture.save(filename2, optimize=True, quality=20)
 
 def distortion():
     filename = filedialog.askopenfilename(initialdir="/", title="Select file to make distortion",
